@@ -2,7 +2,6 @@ import { useState } from 'react';
 import BigButton from '../components/BigButton';
 import { enqueueTask } from '../offline/queue';
 import { sync } from '../offline/sync';
-import { v4 as uuid } from 'uuid';
 
 export default function Use() {
   const [code, setCode] = useState('');
@@ -10,7 +9,7 @@ export default function Use() {
   async function submit() {
     const task = {
       type: 'CHANGE_USE',
-      offline_id: uuid(),
+      offline_id: crypto.randomUUID(),
       payload: { code }
     };
 
