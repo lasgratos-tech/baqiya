@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Merchant {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+  tasks   LedgerTask[]
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+
+  amountSnaps Int
+  shortCode   String   @unique
+  qrPayload   String
+  status      TicketStatus
+  expiresAt   DateTime
+
+  issuedAt    DateTime @default(now())
+  usedAt      DateTime?
+
+  offlineId   String?  @unique
+}
+
+model LedgerTask {
+  id          String   @id @default(uuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+
+  type        TaskType
+  ticketId    String?
+  amountSnaps Int
+
+  offlineId   String   @unique
+  createdAt   DateTime @default(now())
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+enum TaskType {
+  CHANGE_ISSUE
+  CHANGE_USE
+}

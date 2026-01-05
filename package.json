@@ -1,0 +1,9 @@
+{
+  "name": "baqiya",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:api": "pnpm --filter @baqiya/api dev",
+    "dev:pwa": "pnpm --filter @baqiya/pwa dev"
+  }
+}
