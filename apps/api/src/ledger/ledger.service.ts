@@ -1,9 +1,8 @@
 import { prisma } from '../prisma.js';
-import { TaskType } from '@prisma/client';
 
 export async function recordLedgerTask(params: {
   merchantId: string;
-  type: TaskType;
+  type: 'CHANGE_ISSUE' | 'CHANGE_USE';
   ticketId?: string;
   amountSnaps: number;
   offlineId: string;

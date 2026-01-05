@@ -3,7 +3,6 @@ import { prisma } from '../../prisma.js';
 import { generateShortCode } from '../../utils/shortCode.js';
 import { expirationDate } from '../../utils/time.js';
 import { recordLedgerTask } from '../../ledger/ledger.service.js';
-import { TaskType, TicketStatus } from '@prisma/client';
 
 export async function issueTicket(
   req: FastifyRequest,
@@ -21,24 +20,25 @@ export async function issueTicket(
   }
 
   const ticket = await prisma.ticket.create({
-    data: {
-      merchantId: req.merchantId,
-      amountSnaps: amount_snaps,
-      shortCode: generateShortCode(),
-      qrPayload: offline_id,
-      status: TicketStatus.ACTIVE,
-      expiresAt: expirationDate(),
-      offlineId: offline_id
-    }
-  });
+  data: {
+    merchantId: req.merchantId,
+    amountSnaps: amount_snaps,
+    shortCode: generateShortCode(),
+    qrPayload: offline_id,
+    status: 'ACTIVE',
+    expiresAt: expirationDate(),
+    offlineId: offline_id
+  }
+});
+
 
   await recordLedgerTask({
-    merchantId: req.merchantId,
-    type: TaskType.CHANGE_ISSUE,
-    ticketId: ticket.id,
-    amountSnaps: amount_snaps,
-    offlineId: offline_id
-  });
+  merchantId: req.merchantId,
+  type: 'CHANGE_USE',
+  ticketId: ticket.id,
+  amountSnaps: ticket.amountSnaps,
+  offlineId: offline_id
+});
 
   reply.send(ticket);
 }
@@ -70,14 +70,14 @@ export async function useTicket(
   await prisma.ticket.update({
     where: { id: ticket.id },
     data: {
-      status: TicketStatus.USED,
+      status: 'USED',
       usedAt: new Date()
     }
   });
 
   await recordLedgerTask({
     merchantId: req.merchantId,
-    type: TaskType.CHANGE_USE,
+    type: 'CHANGE_USE',
     ticketId: ticket.id,
     amountSnaps: ticket.amountSnaps,
     offlineId: offline_id
