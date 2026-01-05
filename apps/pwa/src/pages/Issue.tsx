@@ -4,7 +4,6 @@ import QRCodeView from '../components/QRCodeView';
 import { enqueueTask } from '../offline/queue';
 import { sync } from '../offline/sync';
 
-
 export default function Issue() {
   const [amount, setAmount] = useState('');
   const [lastCode, setLastCode] = useState<string | null>(null);
@@ -12,20 +11,26 @@ export default function Issue() {
   async function submit() {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const task = {
-      type: 'CHANGE_ISSUE',
-      offline_id: crypto.randomUUID(),
-      payload: {
-        amount_snaps: Number(amount),
-        client_code: code
-      }
-    };
-
-    await enqueueTask(task);
-    await sync();
-
+    // ✅ 1. AFFICHAGE IMMÉDIAT (AVANT RÉSEAU)
     setLastCode(code);
     setAmount('');
+
+    try {
+      const task = {
+        type: 'CHANGE_ISSUE',
+        offline_id: crypto.randomUUID(),
+        payload: {
+          amount_snaps: Number(amount),
+          client_code: code
+        }
+      };
+
+      await enqueueTask(task);
+      await sync();
+    } catch (err) {
+      console.error('[BAQIYA] Sync failed, ticket kept offline', err);
+      // ❗ On ne bloque JAMAIS l’UI
+    }
   }
 
   return (
@@ -43,14 +48,13 @@ export default function Issue() {
 
       {lastCode && (
         <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <h3>Code</h3>
-          <div style={{ fontSize: 32, letterSpacing: 4 }}>
+          <h3>BAQIYA</h3>
+
+          <div style={{ fontSize: 32, letterSpacing: 4, marginBottom: 12 }}>
             {lastCode}
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <QRCodeView value={lastCode} />
-          </div>
+          <QRCodeView value={lastCode} />
         </div>
       )}
     </>

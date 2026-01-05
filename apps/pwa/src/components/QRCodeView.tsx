@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 
 type Props = {
   value: string;
@@ -16,10 +16,17 @@ export default function QRCodeView({ value }: Props) {
       JSON.stringify({ code: value }),
       {
         width: 220,
-        margin: 1
+        margin: 1,
+        errorCorrectionLevel: 'H'
       }
-    );
+    ).catch((err) => {
+      console.error('[BAQIYA] QR generation failed', err);
+    });
   }, [value]);
 
-  return <canvas ref={canvasRef} />;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
 }

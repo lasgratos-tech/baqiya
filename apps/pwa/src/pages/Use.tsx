@@ -7,6 +7,7 @@ export default function Use() {
   const [code, setCode] = useState('');
 
   async function submit() {
+  try {
     const task = {
       type: 'CHANGE_USE',
       offline_id: crypto.randomUUID(),
@@ -17,7 +18,11 @@ export default function Use() {
     await sync();
     alert('Ticket utilisé');
     setCode('');
+  } catch (err) {
+    alert('Ticket enregistré hors ligne');
+    console.error(err);
   }
+}
 
   return (
     <>
