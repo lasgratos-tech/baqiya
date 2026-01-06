@@ -4,22 +4,28 @@ import QRCodeView from '../components/QRCodeView';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// ⚠️ V3 : valeurs fixes (admin plus tard)
+// ⚠️ V3 — valeurs fixes
 const MERCHANT_ID = 'BAQ-0001';
 const CURRENCY = 'MAD';
 const MAX_AMOUNT = 20;
 
-// 🌍 Langue automatique (FR / AR darija)
-const lang = navigator.language.startsWith('ar') ? 'ar' : 'fr';
+// 🌍 Langue : localStorage > téléphone
+function detectLang(): 'fr' | 'ar' {
+  const stored = localStorage.getItem('lang');
+  if (stored === 'fr' || stored === 'ar') return stored;
+  return navigator.language.startsWith('ar') ? 'ar' : 'fr';
+}
 
-const t = {
+const translations = {
   fr: {
     title: 'Rendre la monnaie',
     amountPlaceholder: `Montant (max ${MAX_AMOUNT} Dh)`,
     generate: 'Générer',
     invalidAmount: `Montant invalide (max ${MAX_AMOUNT} Dh)`,
     signed: 'QR signé serveur • expiration automatique',
-    brand: 'BAQIYA'
+    brand: 'BAQIYA',
+    langFR: 'FR',
+    langAR: 'AR'
   },
   ar: {
     title: 'إرجاع الباقي',
@@ -27,15 +33,25 @@ const t = {
     generate: 'إصدار',
     invalidAmount: `المبلغ غير صالح (حد أقصى ${MAX_AMOUNT} درهم)`,
     signed: 'رمز مؤمَّن من الخادم • صالح لمدة محدودة',
-    brand: 'باقية'
+    brand: 'باقية',
+    langFR: 'فر',
+    langAR: 'عر'
   }
-}[lang];
+};
 
 export default function Issue() {
+  const [lang, setLang] = useState<'fr' | 'ar'>(detectLang());
+  const t = translations[lang];
+
   const [amount, setAmount] = useState('');
   const [qrValue, setQrValue] = useState<string | null>(null);
   const [qrPayload, setQrPayload] = useState<any>(null);
   const [displayCode, setDisplayCode] = useState<string | null>(null);
+
+  function switchLang(next: 'fr' | 'ar') {
+    localStorage.setItem('lang', next);
+    setLang(next);
+  }
 
   async function submit() {
     const numericAmount = Number(amount);
@@ -44,7 +60,6 @@ export default function Issue() {
       return;
     }
 
-    // Reset UI
     setQrValue(null);
     setQrPayload(null);
     setDisplayCode(null);
@@ -52,9 +67,7 @@ export default function Issue() {
     try {
       const res = await fetch(`${API_URL}/qr/sign`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           merchant_id: MERCHANT_ID,
           amount: numericAmount,
@@ -62,13 +75,10 @@ export default function Issue() {
         })
       });
 
-      if (!res.ok) {
-        throw new Error('QR_SIGN_FAILED');
-      }
+      if (!res.ok) throw new Error('QR_SIGN_FAILED');
 
       const signedQr = await res.json();
 
-      // UI uniquement
       setQrPayload(signedQr.payload);
       setDisplayCode(signedQr.payload.nonce.slice(0, 6).toUpperCase());
       setQrValue(JSON.stringify(signedQr));
@@ -81,6 +91,12 @@ export default function Issue() {
 
   return (
     <>
+      {/* 🔤 Sélecteur langue */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={() => switchLang('fr')}>{t.langFR}</button>
+        <button onClick={() => switchLang('ar')}>{t.langAR}</button>
+      </div>
+
       <h2>{t.title}</h2>
 
       <input
@@ -99,12 +115,10 @@ export default function Issue() {
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <h3>{t.brand}</h3>
 
-          {/* Code court lisible */}
           <div style={{ fontSize: 28, letterSpacing: 4, marginBottom: 6 }}>
             {displayCode}
           </div>
 
-          {/* Montant + devise */}
           <div style={{ fontSize: 16, marginBottom: 12 }}>
             {qrPayload.amount} {qrPayload.currency}
           </div>
