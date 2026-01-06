@@ -4,15 +4,29 @@ import QRCodeView from '../components/QRCodeView';
 import { enqueueTask } from '../offline/queue';
 import { sync } from '../offline/sync';
 
+// V1 simple : merchant_id local (plus tard configurable)
+const MERCHANT_ID =
+  localStorage.getItem('merchant_id') || 'BAQ-0001';
+
 export default function Issue() {
   const [amount, setAmount] = useState('');
-  const [lastCode, setLastCode] = useState<string | null>(null);
+  const [qrPayload, setQrPayload] = useState<string | null>(null);
+  const [displayCode, setDisplayCode] = useState<string | null>(null);
 
   async function submit() {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ✅ 1. AFFICHAGE IMMÉDIAT (AVANT RÉSEAU)
-    setLastCode(code);
+    // 🔹 Payload QR structuré (V1)
+    const payload = {
+      v: 1,
+      brand: 'BAQIYA',
+      merchant_id: MERCHANT_ID,
+      code
+    };
+
+    // ✅ UI IMMÉDIATE (OFFLINE-FIRST)
+    setDisplayCode(code);
+    setQrPayload(JSON.stringify(payload));
     setAmount('');
 
     try {
@@ -21,7 +35,8 @@ export default function Issue() {
         offline_id: crypto.randomUUID(),
         payload: {
           amount_snaps: Number(amount),
-          client_code: code
+          client_code: code,
+          merchant_id: MERCHANT_ID
         }
       };
 
@@ -46,15 +61,19 @@ export default function Issue() {
 
       <BigButton onClick={submit}>Générer</BigButton>
 
-      {lastCode && (
+      {qrPayload && displayCode && (
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <h3>BAQIYA</h3>
 
-          <div style={{ fontSize: 32, letterSpacing: 4, marginBottom: 12 }}>
-            {lastCode}
+          <div style={{ fontSize: 32, letterSpacing: 4, marginBottom: 8 }}>
+            {displayCode}
           </div>
 
-          <QRCodeView value={lastCode} />
+          <QRCodeView value={qrPayload} />
+
+          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+            Magasin : {MERCHANT_ID}
+          </div>
         </div>
       )}
     </>
