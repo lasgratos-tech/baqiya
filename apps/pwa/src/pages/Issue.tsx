@@ -1,78 +1,118 @@
 import { useState } from 'react';
 import BigButton from '../components/BigButton';
 import QRCodeView from '../components/QRCodeView';
-import { enqueueTask } from '../offline/queue';
-import { sync } from '../offline/sync';
 
-// V1 simple : merchant_id local (plus tard configurable)
-const MERCHANT_ID =
-  localStorage.getItem('merchant_id') || 'BAQ-0001';
+const API_URL = import.meta.env.VITE_API_URL;
+
+// ⚠️ V3 : valeurs fixes (admin plus tard)
+const MERCHANT_ID = 'BAQ-0001';
+const CURRENCY = 'MAD';
+const MAX_AMOUNT = 20;
+
+// 🌍 Langue automatique (FR / AR darija)
+const lang = navigator.language.startsWith('ar') ? 'ar' : 'fr';
+
+const t = {
+  fr: {
+    title: 'Rendre la monnaie',
+    amountPlaceholder: `Montant (max ${MAX_AMOUNT} Dh)`,
+    generate: 'Générer',
+    invalidAmount: `Montant invalide (max ${MAX_AMOUNT} Dh)`,
+    signed: 'QR signé serveur • expiration automatique',
+    brand: 'BAQIYA'
+  },
+  ar: {
+    title: 'إرجاع الباقي',
+    amountPlaceholder: `المبلغ (حد أقصى ${MAX_AMOUNT} درهم)`,
+    generate: 'إصدار',
+    invalidAmount: `المبلغ غير صالح (حد أقصى ${MAX_AMOUNT} درهم)`,
+    signed: 'رمز مؤمَّن من الخادم • صالح لمدة محدودة',
+    brand: 'باقية'
+  }
+}[lang];
 
 export default function Issue() {
   const [amount, setAmount] = useState('');
-  const [qrPayload, setQrPayload] = useState<string | null>(null);
+  const [qrValue, setQrValue] = useState<string | null>(null);
+  const [qrPayload, setQrPayload] = useState<any>(null);
   const [displayCode, setDisplayCode] = useState<string | null>(null);
 
   async function submit() {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const numericAmount = Number(amount);
+    if (!numericAmount || numericAmount <= 0 || numericAmount > MAX_AMOUNT) {
+      alert(t.invalidAmount);
+      return;
+    }
 
-    // 🔹 Payload QR structuré (V1)
-    const payload = {
-      v: 1,
-      brand: 'BAQIYA',
-      merchant_id: MERCHANT_ID,
-      code
-    };
-
-    // ✅ UI IMMÉDIATE (OFFLINE-FIRST)
-    setDisplayCode(code);
-    setQrPayload(JSON.stringify(payload));
-    setAmount('');
+    // Reset UI
+    setQrValue(null);
+    setQrPayload(null);
+    setDisplayCode(null);
 
     try {
-      const task = {
-        type: 'CHANGE_ISSUE',
-        offline_id: crypto.randomUUID(),
-        payload: {
-          amount_snaps: Number(amount),
-          client_code: code,
-          merchant_id: MERCHANT_ID
-        }
-      };
+      const res = await fetch(`${API_URL}/qr/sign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          merchant_id: MERCHANT_ID,
+          amount: numericAmount,
+          currency: CURRENCY
+        })
+      });
 
-      await enqueueTask(task);
-      await sync();
+      if (!res.ok) {
+        throw new Error('QR_SIGN_FAILED');
+      }
+
+      const signedQr = await res.json();
+
+      // UI uniquement
+      setQrPayload(signedQr.payload);
+      setDisplayCode(signedQr.payload.nonce.slice(0, 6).toUpperCase());
+      setQrValue(JSON.stringify(signedQr));
+      setAmount('');
     } catch (err) {
-      console.error('[BAQIYA] Sync failed, ticket kept offline', err);
-      // ❗ On ne bloque JAMAIS l’UI
+      console.error('[BAQIYA] QR generation failed', err);
+      alert('Erreur');
     }
   }
 
   return (
     <>
-      <h2>Rendre la monnaie</h2>
+      <h2>{t.title}</h2>
 
       <input
         type="number"
+        min="0"
+        max={MAX_AMOUNT}
+        step="0.5"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        placeholder="Montant"
+        placeholder={t.amountPlaceholder}
       />
 
-      <BigButton onClick={submit}>Générer</BigButton>
+      <BigButton onClick={submit}>{t.generate}</BigButton>
 
-      {qrPayload && displayCode && (
+      {qrValue && qrPayload && (
         <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <h3>BAQIYA</h3>
+          <h3>{t.brand}</h3>
 
-          <div style={{ fontSize: 32, letterSpacing: 4, marginBottom: 8 }}>
+          {/* Code court lisible */}
+          <div style={{ fontSize: 28, letterSpacing: 4, marginBottom: 6 }}>
             {displayCode}
           </div>
 
-          <QRCodeView value={qrPayload} />
+          {/* Montant + devise */}
+          <div style={{ fontSize: 16, marginBottom: 12 }}>
+            {qrPayload.amount} {qrPayload.currency}
+          </div>
+
+          <QRCodeView value={qrValue} />
 
           <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-            Magasin : {MERCHANT_ID}
+            {t.signed}
           </div>
         </div>
       )}
