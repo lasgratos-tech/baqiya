@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import * as QRCode from 'qrcode';
+import QRCode from 'qrcode';
 
 type Props = {
   value: string;
@@ -9,24 +9,46 @@ export default function QRCodeView({ value }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const size = 240;
 
     QRCode.toCanvas(
-      canvasRef.current,
-      JSON.stringify({ code: value }),
+      canvas,
+      value,
       {
-        width: 220,
+        width: size,
         margin: 1,
-        errorCorrectionLevel: 'H'
+        errorCorrectionLevel: 'H' // IMPORTANT pour logo central
+      },
+      (err) => {
+        if (err) return console.error(err);
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // 🔲 Fond blanc central
+        const boxSize = 70;
+        const center = size / 2;
+
+        ctx.fillStyle = 'white';
+        ctx.fillRect(
+          center - boxSize / 2,
+          center - boxSize / 2,
+          boxSize,
+          boxSize
+        );
+
+        // ✍️ Texte BAQIYA
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 14px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('BAQIYA', center, center);
       }
-    ).catch((err) => {
-      console.error('[BAQIYA] QR generation failed', err);
-    });
+    );
   }, [value]);
 
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <canvas ref={canvasRef} />
-    </div>
-  );
+  return <canvas ref={canvasRef} />;
 }
