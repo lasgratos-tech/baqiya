@@ -16,6 +16,15 @@ function detectLang(): 'fr' | 'ar' {
   return navigator.language.startsWith('ar') ? 'ar' : 'fr';
 }
 
+// 🔑 Générateur nonce frontend (robuste navigateur)
+function generateNonce() {
+  return (
+    Math.random().toString(36).slice(2, 8).toUpperCase() +
+    '-' +
+    Math.random().toString(36).slice(2, 8).toUpperCase()
+  );
+}
+
 const translations = {
   fr: {
     title: 'Rendre la monnaie',
@@ -25,7 +34,8 @@ const translations = {
     signed: 'QR signé serveur • expiration automatique',
     brand: 'BAQIYA',
     langFR: 'FR',
-    langAR: 'AR'
+    langAR: 'AR',
+    offline: 'QR hors ligne'
   },
   ar: {
     title: 'إرجاع الباقي',
@@ -35,7 +45,8 @@ const translations = {
     signed: 'رمز مؤمَّن من الخادم • صالح لمدة محدودة',
     brand: 'باقية',
     langFR: 'فر',
-    langAR: 'عر'
+    langAR: 'عر',
+    offline: 'رمز بدون اتصال'
   }
 };
 
@@ -47,6 +58,7 @@ export default function Issue() {
   const [qrValue, setQrValue] = useState<string | null>(null);
   const [qrPayload, setQrPayload] = useState<any>(null);
   const [displayCode, setDisplayCode] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
 
   function switchLang(next: 'fr' | 'ar') {
     localStorage.setItem('lang', next);
@@ -60,9 +72,11 @@ export default function Issue() {
       return;
     }
 
+    // Reset UI
     setQrValue(null);
     setQrPayload(null);
     setDisplayCode(null);
+    setOffline(false);
 
     try {
       const res = await fetch(`${API_URL}/qr/sign`, {
@@ -84,8 +98,23 @@ export default function Issue() {
       setQrValue(JSON.stringify(signedQr));
       setAmount('');
     } catch (err) {
-      console.error('[BAQIYA] QR generation failed', err);
-      alert('Erreur');
+      console.warn('[BAQIYA] Offline QR fallback');
+
+      const nonce = generateNonce();
+      const offlinePayload = {
+        v: 3,
+        offline: true,
+        merchant_id: MERCHANT_ID,
+        amount: numericAmount,
+        currency: CURRENCY,
+        nonce
+      };
+
+      setQrPayload(offlinePayload);
+      setDisplayCode(nonce.slice(0, 6));
+      setQrValue(JSON.stringify(offlinePayload));
+      setOffline(true);
+      setAmount('');
     }
   }
 
@@ -126,7 +155,7 @@ export default function Issue() {
           <QRCodeView value={qrValue} />
 
           <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-            {t.signed}
+            {offline ? t.offline : t.signed}
           </div>
         </div>
       )}
